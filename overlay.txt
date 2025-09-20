@@ -1,0 +1,57 @@
+/*
+ * Overlay for Light Bar on EBYTE nRF52840 board
+ * Using SPI-based WS2812 driver for better reliability
+ */
+
+#include <zephyr/dt-bindings/led/led.h>
+
+/ {
+	aliases {
+		led1 = &led1;
+		ledstrip = &led_strip;
+	};
+};
+
+&pinctrl {
+	spi3_default: spi3_default {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 0, 30)>,  /* Unused but required */
+				<NRF_PSEL(SPIM_MOSI, 0, 31)>,     /* GPIO0.31 for data */
+				<NRF_PSEL(SPIM_MISO, 0, 29)>;     /* Unused but required */
+		};
+	};
+
+	spi3_sleep: spi3_sleep {
+		group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 0, 30)>,
+				<NRF_PSEL(SPIM_MOSI, 0, 31)>,
+				<NRF_PSEL(SPIM_MISO, 0, 29)>;
+			low-power-enable;
+		};
+	};
+};
+
+&spi3 {
+	compatible = "nordic,nrf-spim";
+	status = "okay";
+	pinctrl-0 = <&spi3_default>;
+	pinctrl-1 = <&spi3_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	led_strip: ws2812@0 {
+		compatible = "worldsemi,ws2812-spi";
+		label = "WS2812";
+
+		/* SPI configuration for WS2812 */
+		reg = <0>; /* ignored, but necessary for SPI bindings */
+		spi-max-frequency = <4000000>;
+
+		/* WS2812 configuration */
+		chain-length = <44>; /* Number of pixels */
+		spi-one-frame = <0x70>;  /* 0111 0000 */
+		spi-zero-frame = <0x40>; /* 0100 0000 */
+		color-mapping = <LED_COLOR_ID_GREEN
+				 LED_COLOR_ID_RED
+				 LED_COLOR_ID_BLUE>;
+	};
+};
