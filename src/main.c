@@ -26,9 +26,9 @@
 
 /* Custom UUIDs for Light Bar Service */
 #define BT_UUID_LIGHTBAR_SERVICE_VAL \
-	BT_UUID_128_ENCODE(0x87654321, 0x4321, 0x8765, 0x4321, 0x6789abcdef12)
+	BT_UUID_128_ENCODE(0x47484649, 0x4341, 0x4244, 0x4140, 0x4345abcdef12)
 #define BT_UUID_LIGHTBAR_CHAR_VAL \
-	BT_UUID_128_ENCODE(0x87654321, 0x4321, 0x8765, 0x4321, 0x6789abcdef13)
+	BT_UUID_128_ENCODE(0x47484649, 0x4341, 0x4244, 0x4140, 0x4345abcdef13)
 
 static struct bt_uuid_128 lightbar_service_uuid = BT_UUID_INIT_128(BT_UUID_LIGHTBAR_SERVICE_VAL);
 static struct bt_uuid_128 lightbar_char_uuid    = BT_UUID_INIT_128(BT_UUID_LIGHTBAR_CHAR_VAL);
@@ -64,12 +64,12 @@ static struct led_rgb pixels[STRIP_NUM_PIXELS];
 /* Color definitions */
 static const struct led_rgb colors[] = {
 	{0, 0, 0},       // 0: OFF
-	{128, 0, 128},   // 1: Purple
+	{255, 0, 255},   // 1: Magenta
 	{0, 0, 255},     // 2: Blue
 	{0, 255, 0},     // 3: Green
-	{128, 0, 128},   // 4: Purple (duplicate)
+	{0, 255, 255},   // 4: Cyan (duplicate)
 	{255, 20, 147},  // 5: Pink
-	{255, 165, 0},   // 6: Orange
+	{255, 128, 0},   // 6: Orange
 	{255, 0, 0},     // 7: Red
 	{255, 255, 255}  // 8: White
 };
