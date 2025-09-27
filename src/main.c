@@ -71,7 +71,7 @@ static const struct led_rgb colors[] = {
 	{255, 20, 147},  // 5: Pink
 	{255, 128, 0},   // 6: Orange
 	{255, 0, 0},     // 7: Red
-	{255, 255, 255}  // 8: White
+	{255, 180, 80}  // 8: White
 };
 
 /* Advertising data */
@@ -194,22 +194,102 @@ static void clear_strip(void)
 }
 
 /* Fun boot-up animation */
+// static void startup_animation(void)
+// {
+// 	printk("Running startup animation...\n");
+//   int j = 1;
+// 	for (int i = 0; i < ACTIVE_PIXELS; i++) {
+// 		// for (int j = 1; j < ARRAY_SIZE(colors); j++) {
+//     if (j > ARRAY_SIZE(colors)){
+//       j = 1;
+//     } 
+//     memset(pixels, 0, sizeof(pixels));
+//     pixels[i] = colors[j];
+//     led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
+//     j++;
+//     k_sleep(K_MSEC(30));
+// 	}
+// 	clear_strip();
+// }
+
+
 static void startup_animation(void)
 {
 	printk("Running startup animation...\n");
-  int j = 1;
-	for (int i = 0; i < ACTIVE_PIXELS; i++) {
-		// for (int j = 1; j < ARRAY_SIZE(colors); j++) {
-    if (j > ARRAY_SIZE(colors)){
-      j = 1;
-    } 
-    memset(pixels, 0, sizeof(pixels));
-    pixels[i] = colors[j];
-    led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
-    j++;
-    k_sleep(K_MSEC(30));
+	
+	int center = STRIP_NUM_PIXELS / 2;
+	int max_spread = (STRIP_NUM_PIXELS / 2) + 1;
+	
+	/* Rich golden color */
+	struct led_rgb golden = {255, 180, 80};
+	
+	/* Phase 1: Expand from center while brightening */
+	for (int spread = 0; spread <= max_spread; spread++) {
+		memset(pixels, 0, sizeof(pixels));
+		
+		/* Brightness increases as we expand */
+		float brightness = (float)spread / max_spread;
+		
+		for (int i = 0; i <= spread; i++) {
+			int left_pos = center - i;
+			int right_pos = center + i;
+			
+			/* All lit pixels have same brightness */
+			if (left_pos >= 0) {
+				pixels[left_pos].r = (int)(golden.r * brightness);
+				pixels[left_pos].g = (int)(golden.g * brightness);
+				pixels[left_pos].b = (int)(golden.b * brightness);
+			}
+			if (right_pos < STRIP_NUM_PIXELS && right_pos != left_pos) {
+				pixels[right_pos].r = (int)(golden.r * brightness);
+				pixels[right_pos].g = (int)(golden.g * brightness);
+				pixels[right_pos].b = (int)(golden.b * brightness);
+			}
+		}
+		
+		led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
+		k_sleep(K_MSEC(30));
 	}
+	
+	/* Phase 2: Dim and brighten once (breathing effect) */
+	/* Dim down */
+	for (int b = 100; b >= 20; b -= 3) {
+		for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+			pixels[i].r = (golden.r * b) / 100;
+			pixels[i].g = (golden.g * b) / 100;
+			pixels[i].b = (golden.b * b) / 100;
+		}
+		led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
+		k_sleep(K_MSEC(20));
+	}
+	
+	/* Brighten back up */
+	for (int b = 20; b <= 100; b += 2) {
+		for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+			pixels[i].r = (golden.r * b) / 100;
+			pixels[i].g = (golden.g * b) / 100;
+			pixels[i].b = (golden.b * b) / 100;
+		}
+		led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
+		k_sleep(K_MSEC(20));
+	}
+	
+	/* Hold briefly at full brightness */
+	k_sleep(K_MSEC(200));
+	
+	/* Phase 3: Fade out */
+  for (int b = 100; b >= 0; b -= 2) {
+    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+      pixels[i].r = (golden.r * b) / 100;
+      pixels[i].g = (golden.g * b) / 100;
+      pixels[i].b = (golden.b * b) / 100;
+    }
+    led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
+    k_sleep(K_MSEC(20));
+  }
+	
 	clear_strip();
+	printk("Startup animation complete\n");
 }
 
 /* ---------- Connection callbacks ---------- */
@@ -331,47 +411,156 @@ static void update_strip(int position, int amplitude, struct led_rgb color, int 
 	led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
 }
 
+// static void lightbar_thread(void)
+// {
+// 	struct lightbar_cmd cmd;
+// 	int position = 0;
+// 	int direction = 1;
+// 	// int64_t last_update = 0;
+
+
+	// while (1) {
+		// if (k_msgq_get(&lightbar_queue, &cmd, K_NO_WAIT) == 0) {
+		// 	if (cmd.color == 0) {
+		// 		clear_strip();
+		// 		k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
+		// 	}
+		// } else {
+		// 	cmd = current_cmd;
+		// }
+  //   float beat_ms = 60000 / cmd.frequency;
+  //   float step_ms = beat_ms / ACTIVE_PIXELS;
+		
+	// 	if (cmd.color > 0 && cmd.color <= 8) {
+	// 		// int beat_ms = 60000 / cmd.frequency;
+	// 		// // int step_ms = beat_ms / (2 * (ACTIVE_PIXELS - 1));
+  //     // int step_ms = beat_ms / ACTIVE_PIXELS;
+			
+	// 		// int64_t now = k_uptime_get();
+	// 		// if ((now - last_update) >= step_ms) {
+	// 			update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
+	// 			k_sleep(K_USEC(step_ms * 1000));
+  //       int whole = (int)step_ms;
+  //       int frac  = (int)((step_ms - whole) * 1000); // 3 decimal places
+  //       printk("Step_ms = %d.%03d\n", whole, frac);
+	// 			position += direction;
+	// 			if (position >= ACTIVE_PIXELS - 1) {
+	// 				position = ACTIVE_PIXELS - 1;
+	// 				direction = -1;
+	// 			} else if (position <= 0) {
+	// 				position = 0;
+	// 				direction = 1;
+	// 			}
+				
+	// 			// last_update = now;
+	// 		}
+	// 	}
+		
+	// 	k_sleep(K_MSEC(10));
+  //   // k_sleep(K_MSEC(step_ms));
+  //   // printk("Step_ms = %d\n", step_ms);
+	// }
+
+
+//   int64_t next_update = k_uptime_get();
+
+// while (1) {
+//     // … get cmd …
+//     if (k_msgq_get(&lightbar_queue, &cmd, K_NO_WAIT) == 0) {
+//     if (cmd.color == 0) {
+//       clear_strip();
+//       k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
+//     }
+// 		} else {
+// 			cmd = current_cmd;
+// 		}
+
+//     float beat_ms = 60000.0f / cmd.frequency;
+//     float step_ms = beat_ms / ACTIVE_PIXELS;
+
+//     if (cmd.color > 0 && cmd.color <= 8) {
+//         update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
+
+//         // schedule next update relative to absolute time
+//         next_update += (int64_t)(step_ms);
+
+//         int64_t now = k_uptime_get();
+//         int64_t delay = next_update - now;
+//         if (delay > 0) {
+//             k_sleep(K_USEC(delay*1000));
+//         } else {
+//             // we're behind schedule → skip ahead
+//             next_update = now;
+//         }
+
+//         position += direction;
+//         if (position >= ACTIVE_PIXELS - 1) {
+//             position = ACTIVE_PIXELS - 1;
+//             direction = -1;
+//         } else if (position <= 0) {
+//             position = 0;
+//             direction = 1;
+//         }
+//     }
+// }
+// }
+
+K_TIMER_DEFINE(step_timer, NULL, NULL);
+
 static void lightbar_thread(void)
 {
-	struct lightbar_cmd cmd;
-	int position = 0;
-	int direction = 1;
-	int64_t last_update = 0;
-	
-	while (1) {
-		if (k_msgq_get(&lightbar_queue, &cmd, K_NO_WAIT) == 0) {
-			if (cmd.color == 0) {
-				clear_strip();
-				k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
-			}
-		} else {
-			cmd = current_cmd;
-		}
-		
-		if (cmd.color > 0 && cmd.color <= 8) {
-			int beat_ms = 60000 / cmd.frequency;
-			int step_ms = beat_ms / (2 * (ACTIVE_PIXELS - 1));
-			
-			int64_t now = k_uptime_get();
-			if ((now - last_update) >= step_ms) {
-				update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
-				
-				position += direction;
-				if (position >= ACTIVE_PIXELS - 1) {
-					position = ACTIVE_PIXELS - 1;
-					direction = -1;
-				} else if (position <= 0) {
-					position = 0;
-					direction = 1;
-				}
-				
-				last_update = now;
-			}
-		}
-		
-		k_sleep(K_MSEC(10));
-	}
+    struct lightbar_cmd cmd;
+    int position = 44;
+    int direction = 1;
+
+    while (1) {
+        // Get latest command (non-blocking) or keep current
+        if (k_msgq_get(&lightbar_queue, &cmd, K_NO_WAIT) == 0) {
+            if (cmd.color == 0) {
+                clear_strip();
+                position = 44;
+                k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
+            }
+            current_cmd = cmd;
+        } else {
+            cmd = current_cmd;
+        }
+
+        if (cmd.color > 0 && cmd.color <= 8) {
+            // calculate timing from BPM
+            float beat_ms = 61000.0f / cmd.frequency;
+            float step_ms = beat_ms / ACTIVE_PIXELS; 
+            int step_us   = (int)(step_ms * 1000);
+            printk ("%d", step_us);
+
+            // start / restart timer with this interval
+            k_timer_start(&step_timer, K_USEC(step_us), K_USEC(step_us));
+
+            // do one step, then wait for timer for the next
+            update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
+
+            int whole = (int)step_ms;
+            int frac  = (int)((step_ms - whole) * 1000); // 3 decimal places
+            printk("Step_ms = %d.%03d\n", whole, frac);
+
+            position += direction;
+            if (position >= ACTIVE_PIXELS - 1) {
+                position = ACTIVE_PIXELS - 1;
+                direction = -1;
+            } else if (position <= 0) {
+                position = 0;
+                direction = 1;
+            }
+
+            // wait for timer before next update
+            k_timer_status_sync(&step_timer);
+        } else {
+            // if no valid color, idle a bit
+            k_sleep(K_MSEC(10));
+        }
+    }
 }
+
 
 int main(void)
 {
