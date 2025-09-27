@@ -69,7 +69,7 @@ static const struct led_rgb colors[] = {
 	{0, 255, 0},     // 3: Green
 	{0, 255, 255},   // 4: Cyan (duplicate)
 	{255, 20, 147},  // 5: Pink
-	{255, 128, 0},   // 6: Orange
+	{255, 80, 0},   // 6: Orange
 	{255, 0, 0},     // 7: Red
 	{255, 180, 80}  // 8: White
 };
@@ -390,120 +390,126 @@ static struct bt_conn_auth_info_cb conn_auth_info_callbacks = {
 };
 
 /* ---------- LED Strip Control Thread ---------- */
+// static void update_strip(int position, int amplitude, struct led_rgb color, int brightness)
+// {
+// 	memset(pixels, 0, sizeof(pixels));
+
+// 	/* Calculate boundaries based on amplitude */
+// 	int center = STRIP_NUM_PIXELS / 2;
+// 	int max_distance = (STRIP_NUM_PIXELS / 2) * amplitude / 100;
+// 	int left_boundary = center - max_distance;
+// 	int right_boundary = center + max_distance;
+	
+// 	if (left_boundary < 0) left_boundary = 0;
+// 	if (right_boundary >= STRIP_NUM_PIXELS) right_boundary = STRIP_NUM_PIXELS - 1;
+
+// 	struct led_rgb adjusted_color;
+// 	adjusted_color.r = (color.r * brightness) / 100;
+// 	adjusted_color.g = (color.g * brightness) / 100;
+// 	adjusted_color.b = (color.b * brightness) / 100;
+
+// 	/* Light up single pixel at position within boundaries */
+// 	if (position >= left_boundary && position <= right_boundary) {
+// 		pixels[position] = adjusted_color;
+// 	}
+
+// 	led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
+// }
+
+// K_TIMER_DEFINE(step_timer, NULL, NULL);
+
+// static void lightbar_thread(void)
+// {
+//     struct lightbar_cmd cmd;
+//     int position = 44;  // Start at center
+//     int direction = 1;
+
+//     while (1) {
+//         // Get latest command (non-blocking) or keep current
+//         if (k_msgq_get(&lightbar_queue, &cmd, K_NO_WAIT) == 0) {
+//             if (cmd.color == 0) {
+//                 clear_strip();
+//                 position = 44;  // Reset to center
+//                 k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
+//             }
+//             current_cmd = cmd;
+//         } else {
+//             cmd = current_cmd;
+//         }
+
+//         if (cmd.color > 0 && cmd.color <= 8) {
+//             /* Calculate boundaries based on amplitude */
+//             int center = STRIP_NUM_PIXELS / 2;
+//             int max_distance = (STRIP_NUM_PIXELS / 2) * cmd.amplitude / 100;
+//             int left_boundary = center - max_distance;
+//             int right_boundary = center + max_distance;
+            
+//             if (left_boundary < 0) left_boundary = 0;
+//             if (right_boundary >= STRIP_NUM_PIXELS) right_boundary = STRIP_NUM_PIXELS - 1;
+            
+//             int range = right_boundary - left_boundary;
+//             if (range < 1) range = 1;
+            
+//             // calculate timing from BPM
+//             float beat_ms = 60000.0f / cmd.frequency;
+//             float step_ms = beat_ms / range;  // Changed from ACTIVE_PIXELS to range
+//             int step_us   = (int)(step_ms * 1000);
+//             printk ("%d", step_us);
+
+//             // start / restart timer with this interval
+//             k_timer_start(&step_timer, K_USEC(step_us), K_USEC(step_us));
+
+//             // do one step, then wait for timer for the next
+//             update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
+
+//             int whole = (int)step_ms;
+//             int frac  = (int)((step_ms - whole) * 1000); // 3 decimal places
+//             printk("Step_ms = %d.%03d\n", whole, frac);
+
+//             position += direction;
+//             if (position >= right_boundary) {  // Changed boundary check
+//                 position = right_boundary;
+//                 direction = -1;
+//             } else if (position <= left_boundary) {  // Changed boundary check
+//                 position = left_boundary;
+//                 direction = 1;
+//             }
+
+//             // wait for timer before next update
+//             k_timer_status_sync(&step_timer);
+//         } else {
+//             // if no valid color, idle a bit
+//             k_sleep(K_MSEC(10));
+//         }
+//     }
+// }
+
+
 static void update_strip(int position, int amplitude, struct led_rgb color, int brightness)
 {
 	memset(pixels, 0, sizeof(pixels));
 
-	int num_pixels = (ACTIVE_PIXELS * amplitude) / 100;
-	if (num_pixels < 1) num_pixels = 1;
-	if (num_pixels > ACTIVE_PIXELS) num_pixels = ACTIVE_PIXELS;
+	/* Calculate boundaries based on amplitude */
+	int center = STRIP_NUM_PIXELS / 2;
+	int max_distance = (STRIP_NUM_PIXELS / 2) * amplitude / 100;
+	int left_boundary = center - max_distance;
+	int right_boundary = center + max_distance;
+	
+	if (left_boundary < 0) left_boundary = 0;
+	if (right_boundary >= STRIP_NUM_PIXELS) right_boundary = STRIP_NUM_PIXELS - 1;
 
 	struct led_rgb adjusted_color;
 	adjusted_color.r = (color.r * brightness) / 100;
 	adjusted_color.g = (color.g * brightness) / 100;
 	adjusted_color.b = (color.b * brightness) / 100;
 
-	int start_pos = position;
-	for (int i = 0; i < num_pixels && (start_pos + i) < ACTIVE_PIXELS; i++) {
-		pixels[start_pos + i] = adjusted_color;
+	/* Light up single pixel at position within boundaries */
+	if (position >= left_boundary && position <= right_boundary) {
+		pixels[position] = adjusted_color;
 	}
 
 	led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
 }
-
-// static void lightbar_thread(void)
-// {
-// 	struct lightbar_cmd cmd;
-// 	int position = 0;
-// 	int direction = 1;
-// 	// int64_t last_update = 0;
-
-
-	// while (1) {
-		// if (k_msgq_get(&lightbar_queue, &cmd, K_NO_WAIT) == 0) {
-		// 	if (cmd.color == 0) {
-		// 		clear_strip();
-		// 		k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
-		// 	}
-		// } else {
-		// 	cmd = current_cmd;
-		// }
-  //   float beat_ms = 60000 / cmd.frequency;
-  //   float step_ms = beat_ms / ACTIVE_PIXELS;
-		
-	// 	if (cmd.color > 0 && cmd.color <= 8) {
-	// 		// int beat_ms = 60000 / cmd.frequency;
-	// 		// // int step_ms = beat_ms / (2 * (ACTIVE_PIXELS - 1));
-  //     // int step_ms = beat_ms / ACTIVE_PIXELS;
-			
-	// 		// int64_t now = k_uptime_get();
-	// 		// if ((now - last_update) >= step_ms) {
-	// 			update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
-	// 			k_sleep(K_USEC(step_ms * 1000));
-  //       int whole = (int)step_ms;
-  //       int frac  = (int)((step_ms - whole) * 1000); // 3 decimal places
-  //       printk("Step_ms = %d.%03d\n", whole, frac);
-	// 			position += direction;
-	// 			if (position >= ACTIVE_PIXELS - 1) {
-	// 				position = ACTIVE_PIXELS - 1;
-	// 				direction = -1;
-	// 			} else if (position <= 0) {
-	// 				position = 0;
-	// 				direction = 1;
-	// 			}
-				
-	// 			// last_update = now;
-	// 		}
-	// 	}
-		
-	// 	k_sleep(K_MSEC(10));
-  //   // k_sleep(K_MSEC(step_ms));
-  //   // printk("Step_ms = %d\n", step_ms);
-	// }
-
-
-//   int64_t next_update = k_uptime_get();
-
-// while (1) {
-//     // … get cmd …
-//     if (k_msgq_get(&lightbar_queue, &cmd, K_NO_WAIT) == 0) {
-//     if (cmd.color == 0) {
-//       clear_strip();
-//       k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
-//     }
-// 		} else {
-// 			cmd = current_cmd;
-// 		}
-
-//     float beat_ms = 60000.0f / cmd.frequency;
-//     float step_ms = beat_ms / ACTIVE_PIXELS;
-
-//     if (cmd.color > 0 && cmd.color <= 8) {
-//         update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
-
-//         // schedule next update relative to absolute time
-//         next_update += (int64_t)(step_ms);
-
-//         int64_t now = k_uptime_get();
-//         int64_t delay = next_update - now;
-//         if (delay > 0) {
-//             k_sleep(K_USEC(delay*1000));
-//         } else {
-//             // we're behind schedule → skip ahead
-//             next_update = now;
-//         }
-
-//         position += direction;
-//         if (position >= ACTIVE_PIXELS - 1) {
-//             position = ACTIVE_PIXELS - 1;
-//             direction = -1;
-//         } else if (position <= 0) {
-//             position = 0;
-//             direction = 1;
-//         }
-//     }
-// }
-// }
 
 K_TIMER_DEFINE(step_timer, NULL, NULL);
 
@@ -511,7 +517,7 @@ static void lightbar_thread(void)
 {
     struct lightbar_cmd cmd;
     int position = 44;
-    int direction = 1;
+    int direction = -1;  // Start moving left
 
     while (1) {
         // Get latest command (non-blocking) or keep current
@@ -519,6 +525,7 @@ static void lightbar_thread(void)
             if (cmd.color == 0) {
                 clear_strip();
                 position = 44;
+                direction = -1;
                 k_msgq_get(&lightbar_queue, &cmd, K_FOREVER);
             }
             current_cmd = cmd;
@@ -527,11 +534,23 @@ static void lightbar_thread(void)
         }
 
         if (cmd.color > 0 && cmd.color <= 8) {
-            // calculate timing from BPM
-            float beat_ms = 61000.0f / cmd.frequency;
-            float step_ms = beat_ms / ACTIVE_PIXELS; 
-            int step_us   = (int)(step_ms * 1000);
-            printk ("%d", step_us);
+            /* Calculate boundaries based on amplitude */
+            int center = STRIP_NUM_PIXELS / 2;
+            int max_distance = (STRIP_NUM_PIXELS / 2) * cmd.amplitude / 100;
+            int left_boundary = center - max_distance;
+            int right_boundary = center + max_distance;
+            
+            if (left_boundary < 0) left_boundary = 0;
+            if (right_boundary >= STRIP_NUM_PIXELS) right_boundary = STRIP_NUM_PIXELS - 1;
+            
+            int range = right_boundary - left_boundary;
+            if (range < 1) range = 1;
+            
+            // One beat = one direction (left OR right)
+            // So 60 BPM = 60 directional movements per minute = 1 per second
+            float beat_ms = 60000.0f / cmd.frequency;  // Time for one beat
+            float step_ms = beat_ms / range;  // Time per LED step
+            int step_us = (int)(step_ms * 1000);
 
             // start / restart timer with this interval
             k_timer_start(&step_timer, K_USEC(step_us), K_USEC(step_us));
@@ -539,16 +558,12 @@ static void lightbar_thread(void)
             // do one step, then wait for timer for the next
             update_strip(position, cmd.amplitude, colors[cmd.color], cmd.brightness);
 
-            int whole = (int)step_ms;
-            int frac  = (int)((step_ms - whole) * 1000); // 3 decimal places
-            printk("Step_ms = %d.%03d\n", whole, frac);
-
             position += direction;
-            if (position >= ACTIVE_PIXELS - 1) {
-                position = ACTIVE_PIXELS - 1;
+            if (position >= right_boundary) {
+                position = right_boundary;
                 direction = -1;
-            } else if (position <= 0) {
-                position = 0;
+            } else if (position <= left_boundary) {
+                position = left_boundary;
                 direction = 1;
             }
 
